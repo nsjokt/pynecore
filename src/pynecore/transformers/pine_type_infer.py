@@ -1491,7 +1491,8 @@ class _Inference:
                                 stmt.value if stmt.value is not None else stmt,
                                 _spells_series(stmt.annotation), unknown,
                                 SERIES if stmt.value is None else self._qual(stmt.value),
-                                _spells_persistent(stmt.annotation))
+                                _spells_persistent(stmt.annotation),
+                                declared=not bare_wrapper(stmt.annotation) and unknown is None)
                 elif isinstance(stmt.target, ast.Name) and _spells_series(stmt.annotation):
                     # ``x: Series`` with no value declares how the name lives
                     # before the assignment that gives it its type
@@ -2140,7 +2141,7 @@ class _Inference:
 
     def _store(self, target: ast.expr, ty: str, source: ast.AST, series: bool = False,
                unknown: Unknown | None = None, qual: int = SERIES,
-               persistent: bool = False) -> None:
+               persistent: bool = False, declared: bool = False) -> None:
         """
         Bind an assignment target, recursing into tuple/list targets.
 
@@ -2152,12 +2153,27 @@ class _Inference:
                         the caller has a more precise one than "the value"
         :param qual: The qualifier stored
         :param persistent: Whether the declaration spells a ``Persistent``
+        :param declared: Whether an explicit type annotation declares the name
         """
         if isinstance(target, ast.Name):
+            if ty == UNKNOWN and not declared:
+                # ``float x = 0.0`` then ``x := f()`` with f's type unknown here:
+                # Pine compiled it, so the value fits the declaration, and the
+                # declared type is what the name holds. Joining it with UNKNOWN
+                # instead erased it, and an array it was pushed into then
+                # suppressed every overload pin of the module (Template Trailing
+                # Strategy: f(int)/f(float) recursed for want of its pin)
+                home = self._declared_home(target.id)
+                found = (home if home is not None else self._bindings()).get(target.id)
+                if found is not None and found.declared and found.ty != UNKNOWN:
+                    ty = found.ty
             self._stamp(target, ty)
             if ty == UNKNOWN and unknown is None:
                 unknown = self._unknown('unknown-value', source)
             self._bind(target.id, ty, source, unknown, series, qual, persistent)
+            if declared and ty != UNKNOWN:
+                home = self._declared_home(target.id)
+                (home if home is not None else self._bindings())[target.id].declared = True
         elif isinstance(target, (ast.Tuple, ast.List)):
             self._stamp(target, ty if is_tuple(ty) else OBJECT)
             self._distribute(target, ty, source, qual)

@@ -3220,11 +3220,18 @@ def _tdc_day_end_ms(trade_date: date) -> int | None:
         return None
     end_tod, offset = entry
     end_date = trade_date + timedelta(days=offset)
-    return int(datetime(
+    end_ms = int(datetime(
         end_date.year, end_date.month, end_date.day,
         end_tod.hour, end_tod.minute, end_tod.second,
         tzinfo=_tdc_tz,
     ).timestamp() * 1000)
+    # ``23:59:59`` is the 24/7 end-of-day marker (see security._exclusive_session_end):
+    # the day really runs to midnight. Without this the last intraday bar of a 24/7
+    # symbol closed one second early, and ``time_close == time_close("D")`` -- true on
+    # TradingView on that bar -- was never true (ORB Long-Only: day-end exits lost)
+    if (end_tod.hour, end_tod.minute, end_tod.second) == (23, 59, 59):
+        end_ms += 1000
+    return end_ms
 
 
 # Scheduled calendar of the chart symbol, used for D/W/M bar closes. Rebuilt

@@ -105,6 +105,10 @@ class Binding:
     #: Lowest qualifier a read of it has seen in the running walk, NOT_READ when
     #: none has read it: a read below the final qualifier is a stale read
     min_read: int = NOT_READ
+    #: Bound by an explicit type annotation (Pine's ``float x = ...``): Pine keeps
+    #: that type through every ``:=``, so a reassigned value whose type is not
+    #: known here does not erase it
+    declared: bool = False
 
 
 @dataclass(slots=True)
