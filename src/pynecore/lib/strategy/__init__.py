@@ -1175,7 +1175,7 @@ class SimPosition(PositionBase):
         'risk_cons_loss_days', 'risk_last_trading_day', 'risk_last_day_equity',
         'risk_intraday_filled_orders', 'risk_intraday_start_equity',
         '_deferred_margin_call', '_mc_stage2', '_mc_ghosts', '_bar_start_size', '_bar_start_equity',
-        '_fill_counter', '_last_fill_price', '_partial_close_bar',
+        '_fill_counter', '_last_fill_price', '_last_fill_priced', '_partial_close_bar',
         '_entry_book', '_entry_seq', '_act_counter', '_deferred_immediate_closes', '_coof_cursor', '_market_fill_price',
         '_walk_node', '_path_node', '_leg_start', '_spawned_trail_legs', '_triggered_stop_limits',
         '_spread_nodes', '_spread_at_close', '_spread_opposite',
@@ -1296,6 +1296,8 @@ class SimPosition(PositionBase):
         self._bar_start_size: float = 0.0
         self._bar_start_equity: float = 0.0
         self._fill_counter: int = 0
+        # True when the last fill was a priced order (limit/stop/trailing) -- read by the COOF view rule
+        self._last_fill_priced: bool = False
         # Price of the most recent fill — the broker emulator's "current price"
         # for a calc_on_order_fills body run (see _mark_to_last_fill).
         self._last_fill_price: float = 0.0
@@ -1895,6 +1897,10 @@ class SimPosition(PositionBase):
         self._fill_counter += 1
         self._last_fill_price = price
         self._path_node = self._walk_node
+        # trail_offset defaults to 0 on every order -- a trailing exit is marked by its activation level
+        self._last_fill_priced = (order.limit is not None or order.stop is not None
+                                  or getattr(order, "trail_price", None) is not None
+                                  or getattr(order, "trail_points_ticks", None) is not None)
 
         # Save the original order size before any modifications
         filled_size = abs(order.size)

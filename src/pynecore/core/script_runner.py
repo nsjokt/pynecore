@@ -305,7 +305,7 @@ def _round_price(price: float, tick_decimals: int | None):
 
 
 # noinspection PyShadowingNames
-def _coof_view_node(cursor: int) -> int:
+def _coof_view_node(cursor: int, priced: bool = False) -> int:
     """Path node a ``calc_on_order_fills`` re-execution sees.
 
     Default = the running view (no lookahead -- PyneCore's design; tests t031/t033).
@@ -315,10 +315,12 @@ def _coof_view_node(cursor: int) -> int:
       ``=1``   only re-executions that start from the bar's opening fill (``cursor == 0``)
                see the finished bar -- TV corpus +4 matches / 0 lost (2026-11-18).
       ``=all`` every re-execution sees it -- +12 / -1 (loses X48 BreakOut).
+      ``=mkt`` only re-executions triggered by a market fill see it; a re-execution
+               triggered by a priced (stop/limit/trailing) touch keeps the running view.
     Never set it when results feed a trading decision: it is lookahead.
     """
     mode = os.environ.get("PYNE_COOF_FULLBAR", "")
-    if mode == "all" or (mode == "1" and cursor == 0):
+    if mode == "all" or (mode == "1" and cursor == 0) or (mode == "mkt" and not priced):
         return 3
     return cursor
 
@@ -3687,7 +3689,7 @@ class ScriptRunner:
                     # body sizes and what its orders fill at below.
                     sim._coof_cursor = cursor
                     sim._mark_to_last_fill()
-                    _set_path_bar(lib, _coof_view_node(cursor), bar_prices, near_is_high)
+                    _set_path_bar(lib, _coof_view_node(cursor, getattr(sim, '_last_fill_priced', False)), bar_prices, near_is_high)
                     _run_libs_and_main()
                     # Restore BEFORE processing orders: ``process_orders`` re-reads
                     # the bar's OHLC from these globals, and a truncated bar would
@@ -3736,7 +3738,7 @@ class ScriptRunner:
                     # sizes and what its orders fill at (see ``_coof_loop``).
                     sim._coof_cursor = cursor
                     sim._mark_to_last_fill()
-                    _set_path_bar(lib, _coof_view_node(cursor), bar_prices, near_is_high)
+                    _set_path_bar(lib, _coof_view_node(cursor, getattr(sim, '_last_fill_priced', False)), bar_prices, near_is_high)
                     _run_libs_and_main()
                     # Restore BEFORE processing orders: ``process_orders``
                     # re-reads the bar's OHLC from these globals.
