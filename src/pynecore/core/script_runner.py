@@ -3669,7 +3669,7 @@ class ScriptRunner:
                     # body sizes and what its orders fill at below.
                     sim._coof_cursor = cursor
                     sim._mark_to_last_fill()
-                    _set_path_bar(lib, cursor, bar_prices, near_is_high)
+                    _set_path_bar(lib, (3 if (cursor == 0 or __import__('os').environ.get('PYNE_COOF_FULLBAR') == 'all') else cursor) if __import__('os').environ.get('PYNE_COOF_FULLBAR') else cursor, bar_prices, near_is_high)
                     _run_libs_and_main()
                     # Restore BEFORE processing orders: ``process_orders`` re-reads
                     # the bar's OHLC from these globals, and a truncated bar would
@@ -3718,7 +3718,7 @@ class ScriptRunner:
                     # sizes and what its orders fill at (see ``_coof_loop``).
                     sim._coof_cursor = cursor
                     sim._mark_to_last_fill()
-                    _set_path_bar(lib, cursor, bar_prices, near_is_high)
+                    _set_path_bar(lib, (3 if (cursor == 0 or __import__('os').environ.get('PYNE_COOF_FULLBAR') == 'all') else cursor) if __import__('os').environ.get('PYNE_COOF_FULLBAR') else cursor, bar_prices, near_is_high)
                     _run_libs_and_main()
                     # Restore BEFORE processing orders: ``process_orders``
                     # re-reads the bar's OHLC from these globals.
